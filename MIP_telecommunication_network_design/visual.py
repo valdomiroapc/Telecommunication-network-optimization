@@ -8,6 +8,15 @@ class visual:
     matriz_demandas_adjacencia = None
     matriz_aresta_modulos = None
 
+    def __teste_fluxo_capacidade(self,G):
+        for i in range(len(G.nos)):
+            for j in range(len(G.nos)):
+                if self.matriz_adjacencia_fluxo[i][j] > self.matriz_adjacencia_capacidade[i][j]:
+                    print('REPROVADO NO TESTE FLUXO CAPACIDADE!!!')
+                    return False
+        print('APROVADO NO TESTE FLUXO CAPACIDADE!!!')
+        return True
+
     def __impressao_bonita(self,G):
         for i in range(len(G.nos)):
             for j in range(len(G.nos)):
@@ -32,8 +41,8 @@ class visual:
                     self.matriz_adjacencia_fluxo[i][j] += float(self.matriz_demandas_adjacencia[k][i][j])* G.demandas[k].routing_value
 
 
-    def __preenche_matriz_adjacencia(self):
-        self.matriz_adjacencia = [[0 for j in range(len(self.matriz_demandas_adjacencia[0][i]))] for i in range(len(self.matriz_demandas_adjacencia[0]))]
+    def __preenche_matriz_adjacencia(self,G):
+        self.matriz_adjacencia = [[0 for j in range(len(G.nos))] for i in range(len(G.nos))]
         for k in range(len(self.matriz_demandas_adjacencia)):
             for i in range(len(self.matriz_demandas_adjacencia[k])):
                 for j in range(len(self.matriz_demandas_adjacencia[k][i])):
@@ -45,6 +54,7 @@ class visual:
         self.matriz_demandas_adjacencia = []
         self.matriz_aresta_modulos = [[[0 for t in range(G.tam_capacidade)] for j in range(len(G.nos))] for i in range(len(G.nos))]
         e = 0
+        print('---------------ta aqui mais é corno')
         for linha in arquivo:
             lista = linha.split()
             if len(lista) == 0:
@@ -69,11 +79,12 @@ class visual:
 
     def __init__(self,G):
         self.__preenche_matriz_demandas_adjacencia_matriz_aresta_modulos(G)
-        self.__preenche_matriz_adjacencia()
+        self.__preenche_matriz_adjacencia(G)
         self.__preenche_matriz_adjacencia_fluxo(G)
         self.__preenche_matriz_adjacencia_capacidade(G)
-        self.__impressao_bonita(G)
+        #self.__impressao_bonita(G)
+        self.__teste_fluxo_capacidade(G)
         pass
 
-G = grafo()
-teste = visual(G)
+# G = grafo()
+# teste = visual(G)

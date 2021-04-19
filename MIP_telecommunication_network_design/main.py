@@ -1,6 +1,6 @@
 from gurobipy import *
 from grafo_pronto import grafo
-#from visual import visual
+from visual import visual
 G = grafo()
 modelo = Model('telecom')
 x = modelo.addVars(len(G.demandas),len(G.nos),len(G.nos),vtype=GRB.BINARY,name='fluxo')
@@ -102,6 +102,7 @@ modelo.setObjective(obj,sense=GRB.MINIMIZE)
 modelo.Params.timeLimit = 180.0
 modelo.optimize()
 resposta = open('instancia1/Solução', 'w')
+print('--------------',len(G.demandas),'----',len(G.nos),'-------------')
 for k in range(len(G.demandas)):
     dem = 'demanda '+str(k)+':\n'
     resposta.write(dem)
@@ -123,6 +124,9 @@ for i in range(len(G.nos)):
             linha+='\n'
             resposta.write(linha)
 resposta.close()
-#vis = visual(G)
+vis = visual(G)
+# resposta = open('instancia1/Solução', 'r')
+# for linha in resposta:
+#     print(linha)
 print('custo gurobi>>>>>',modelo.getAttr(GRB.Attr.ObjVal))
 print(G.tam_capacidade)
