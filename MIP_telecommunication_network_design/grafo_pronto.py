@@ -124,7 +124,6 @@ class grafo:
             idx_j = int(self.idx_nos[nome_j])
             self.demandas.append(demands(nome,nome_i,nome_j,routing_unit,demands_value,demands_type,idx_i,idx_j))
 
-
     def __init__(self,tipo_aresta='U'):
         self.__processa_nos()
         self.__processa_links(tipo_aresta)
