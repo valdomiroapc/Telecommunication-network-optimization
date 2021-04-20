@@ -1,90 +1,63 @@
 from grafo_pronto import grafo
-
 class visual:
     matriz_adjacencia = None
     matriz_adjacencia_fluxo = None
     matriz_adjacencia_capacidade = None
     custo = 0.0
-    matriz_demandas_adjacencia = None
-    matriz_aresta_modulos = None
-
-    def __teste_fluxo_capacidade(self,G):
-        for i in range(len(G.nos)):
-            for j in range(len(G.nos)):
+    vx = None
+    vy = None
+    G = None
+    def __teste_fluxo_capacidade(self):
+        for i in range(len(self.matriz_adjacencia_fluxo)):
+            for j in range(len(self.matriz_adjacencia_fluxo[i])):
                 if self.matriz_adjacencia_fluxo[i][j] > self.matriz_adjacencia_capacidade[i][j]:
-                    print('REPROVADO NO TESTE FLUXO CAPACIDADE!!!')
+                    print('Não passou no teste fluxo capacidade')
                     return False
-        print('APROVADO NO TESTE FLUXO CAPACIDADE!!!')
+        print('passou no teste fluxo capacidade')
         return True
 
-    def __impressao_bonita(self,G):
-        for i in range(len(G.nos)):
-            for j in range(len(G.nos)):
-                print('fluxo=',self.matriz_adjacencia_fluxo[i][j],'capacidade=',self.matriz_adjacencia_capacidade[i][j],'selec=',self.matriz_aresta_modulos[i][j],'estado=',G.matriz_adjacencia[i][j])
+    def __preeche(self):
+        self.matriz_adjacencia = [[0 for j in range(len(self.G.nos))] for i in range(len(self.G.nos))]
+        self.matriz_adjacencia_fluxo = [[0.0 for j in range(len(self.G.nos))] for i in range(len(self.G.nos))]
+        self.matriz_adjacencia_capacidade = [[0 for j in range(len(self.G.nos))] for i in range(len(self.G.nos))]
 
-    def __preenche_matriz_adjacencia_capacidade(self,G):
-        self.matriz_adjacencia_capacidade = [[0.0 for j in range(len(self.matriz_adjacencia[i]))] for i in range(len(self.matriz_adjacencia))]
-        for i in range(len(self.matriz_aresta_modulos)):
-            for j in range(len(self.matriz_aresta_modulos[i])):
-                if G.matriz_adjacencia[i][j] == -1:
-                    continue
-                e = G.matriz_adjacencia[i][j]
-                T = G.arestas[e].module_list
-                for t in range(len(T)):
-                    self.matriz_adjacencia_capacidade[i][j] += self.matriz_aresta_modulos[i][j][t]*T[t].capacidade
+        for k in range(len(self.vx)):
+            for i in range(len(self.vx[k])):
+                for j in range(len(self.vx[k][i])):
+                    self.matriz_adjacencia[i][j] += self.vx[k][i][j]
+                    self.matriz_adjacencia_fluxo[i][j] += float(self.vx[k][i][j])*self.G.demandas[k].routing_value
 
-    def __preenche_matriz_adjacencia_fluxo(self, G):
-        self.matriz_adjacencia_fluxo = [[0.0 for j in range(len(self.matriz_adjacencia[i]))] for i in range(len(self.matriz_adjacencia))]
-        for k in range(len(self.matriz_demandas_adjacencia)):
-            for i in range(len(self.matriz_demandas_adjacencia[k])):
-                for j in range(len(self.matriz_demandas_adjacencia[k][i])):
-                    self.matriz_adjacencia_fluxo[i][j] += float(self.matriz_demandas_adjacencia[k][i][j])* G.demandas[k].routing_value
+        for i in range(len(self.matriz_adjacencia)):
+            for j in range(len(self.matriz_adjacencia[i])):
+                print(self.matriz_adjacencia[i][j],end=' ')
+            print('')
+        print('')
+        for i in range(len(self.matriz_adjacencia_fluxo)):
+            for j in range(len(self.matriz_adjacencia_fluxo[i])):
+                print(self.matriz_adjacencia_fluxo[i][j],end=' ')
+            print('')
+        print('')
+        for i in range(len(self.vy)):
+            for j in range(len(self.vy[i])):
+                value = 0.0
+                if self.G.matriz_adjacencia[i][j] != -1:
+                    e = self.G.matriz_adjacencia[i][j]
+                    for t in range(len(self.vy[i][j])):
+                        value += self.vy[i][j][t]*self.G.arestas[e].module_list[t].capacidade
+                self.matriz_adjacencia_capacidade[i][j] = value
 
+        for i in range(len(self.matriz_adjacencia_capacidade)):
+            for j in range(len(self.matriz_adjacencia_capacidade[i])):
+                print(self.matriz_adjacencia_capacidade[i][j],end=' ')
+            print('')
 
-    def __preenche_matriz_adjacencia(self,G):
-        self.matriz_adjacencia = [[0 for j in range(len(G.nos))] for i in range(len(G.nos))]
-        for k in range(len(self.matriz_demandas_adjacencia)):
-            for i in range(len(self.matriz_demandas_adjacencia[k])):
-                for j in range(len(self.matriz_demandas_adjacencia[k][i])):
-                    self.matriz_adjacencia[i][j] = self.matriz_demandas_adjacencia[k][i][j] or self.matriz_adjacencia[i][j]
+    def __init__(self,G,vx,vy):
+        self.vx = vx
+        self.vy = vy
+        self.G = G
+        self.__preeche()
+        self.__teste_fluxo_capacidade()
 
-    def __preenche_matriz_demandas_adjacencia_matriz_aresta_modulos(self,G):
-        arquivo = open(r'instancia1\Solução','r')
-        modo = 0
-        self.matriz_demandas_adjacencia = []
-        self.matriz_aresta_modulos = [[[0 for t in range(G.tam_capacidade)] for j in range(len(G.nos))] for i in range(len(G.nos))]
-        e = 0
-        print('---------------ta aqui mais é corno')
-        for linha in arquivo:
-            lista = linha.split()
-            if len(lista) == 0:
-                modo=1
-                continue
-            if modo == 0:
-                if lista[0] == 'demanda':
-                    self.matriz_demandas_adjacencia.append([])
-                    continue
-                lista_int = []
-                for i in lista:
-                    lista_int.append(int(i))
-                self.matriz_demandas_adjacencia[len(self.matriz_demandas_adjacencia)-1].append(lista_int)
-            else:
-                lista = linha.split()
-                lista_int = []
-                for i in lista:
-                    lista_int.append(int(i))
-                i = lista_int[0]
-                j = lista_int[1]
-                self.matriz_aresta_modulos[i][j]=lista_int[2:]
-
-    def __init__(self,G):
-        self.__preenche_matriz_demandas_adjacencia_matriz_aresta_modulos(G)
-        self.__preenche_matriz_adjacencia(G)
-        self.__preenche_matriz_adjacencia_fluxo(G)
-        self.__preenche_matriz_adjacencia_capacidade(G)
-        #self.__impressao_bonita(G)
-        self.__teste_fluxo_capacidade(G)
-        pass
 
 # G = grafo()
 # teste = visual(G)

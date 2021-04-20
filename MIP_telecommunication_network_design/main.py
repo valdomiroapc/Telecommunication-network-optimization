@@ -101,32 +101,28 @@ for k in range(len(G.demandas)):
 modelo.setObjective(obj,sense=GRB.MINIMIZE)
 modelo.Params.timeLimit = 180.0
 modelo.optimize()
-resposta = open('instancia1/Solução', 'w')
 print('--------------',len(G.demandas),'----',len(G.nos),'-------------')
+vx = [[[0 for j in range(len(G.nos))] for i in range(len(G.nos))] for k in range(len(G.demandas))]
 for k in range(len(G.demandas)):
-    dem = 'demanda '+str(k)+':\n'
-    resposta.write(dem)
     for i in range(len(G.nos)):
-        linha = ''
         for j in range(len(G.nos)):
-            linha += str(int(x[k,i,j].getAttr(GRB.Attr.X)))+' '
-        linha += '\n'
-        resposta.write(linha)
-resposta.write('\n')
+            vx[k][i][j]=int(x[k,i,j].getAttr(GRB.Attr.X))
 
+
+vy = [[[] for j in range(len(G.nos))] for i in range(len(G.nos))]
 for i in range(len(G.nos)):
     for j in range(len(G.nos)):
         if G.matriz_adjacencia[i][j] != -1:
             e = G.matriz_adjacencia[i][j]
-            linha =str(i)+' '+str(j)+' '
+            aux = [0 for t in range(len(G.arestas[e].module_list))]
             for t in range(len(G.arestas[e].module_list)):
-                linha += str(int(y[t,i,j].getAttr(GRB.Attr.X)))+' '
-            linha+='\n'
-            resposta.write(linha)
-resposta.close()
-vis = visual(G)
-# resposta = open('instancia1/Solução', 'r')
-# for linha in resposta:
-#     print(linha)
+                aux[t]=int(y[t,i,j].getAttr(GRB.Attr.X))
+            vy[i][j] = aux
+        else:
+            vy[i][j] = [0 for t in range(G.tam_capacidade)]
+
+
+vis = visual(G,vx,vy)
+
 print('custo gurobi>>>>>',modelo.getAttr(GRB.Attr.ObjVal))
 print(G.tam_capacidade)
