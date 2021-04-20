@@ -64,6 +64,41 @@ class grafo:
     idx_nos={}
     matriz_adjacencia = None
     tam_capacidade = 0
+    matriz_adjacencia_capacidade = None
+    matriz_adjacencia_custo = None
+    matriz_adjacencia_demanda = None
+
+    def __gera_matriz_adjacencia_demanda_valor(self):
+        self.matriz_adjacencia_demanda = [[[] for j in range(len(self.nos))] for i in range(len(self.nos))]
+        for i in range(len(self.nos)):
+            for j in range(len(self.nos)):
+                aux = [0.0 for t in range(len(self.demandas))]
+                for k in range(len(self.demandas)):
+                    aux[k] = self.demandas[k].routing_value
+                self.matriz_adjacencia_demanda[i][j] = aux
+
+    def __gera_matriz_adjacencia_custo(self):
+        self.matriz_adjacencia_custo = [[[] for j in range(len(self.nos))] for i in range(len(self.nos))]
+        for i in range(len(self.nos)):
+            for j in range(len(self.nos)):
+                aux = [0.0 for t in range(self.tam_capacidade)]
+                if self.matriz_adjacencia[i][j] != -1:
+                    e = self.matriz_adjacencia[i][j]
+                    for t in range(len(self.arestas[e].module_list)):
+                        aux[t] = self.arestas[e].module_list[t].cost
+                self.matriz_adjacencia_custo[i][j] = aux
+
+    def __gera_matriz_adjacencia_capacidade(self):
+        self.matriz_adjacencia_capacidade = [[[] for j in range(len(self.nos))] for i in range(len(self.nos))]
+        for i in range(len(self.nos)):
+            for j in range(len(self.nos)):
+                aux = [0.0 for t in range(self.tam_capacidade)]
+                if self.matriz_adjacencia[i][j]!=-1:
+                    e = self.matriz_adjacencia[i][j]
+                    for t in range(len(self.arestas[e].module_list)):
+                        aux[t] = self.arestas[e].module_list[t].capacidade
+                self.matriz_adjacencia_capacidade[i][j] = aux
+
     def __processa_nos(self):
         caminho_nodes = r'instancia1\nodes'
         arq = open(caminho_nodes,'r')
@@ -128,4 +163,8 @@ class grafo:
         self.__processa_nos()
         self.__processa_links(tipo_aresta)
         self.__processa_demands()
+        self.__gera_matriz_adjacencia_capacidade()
+        self.__gera_matriz_adjacencia_custo()
+        self.__gera_matriz_adjacencia_demanda_valor()
+
 
