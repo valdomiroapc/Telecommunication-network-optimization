@@ -5,12 +5,22 @@ G = grafo()
 modelo = Model('telecom')
 x = modelo.addVars(len(G.nos),len(G.nos),len(G.demandas),vtype=GRB.BINARY,name='fluxo')
 y = modelo.addVars(len(G.nos),len(G.nos),G.tam_capacidade,vtype=GRB.BINARY,name='modulo')
-obj = LinExpr()
+modelo.ModelSense = GRB.MINIMIZE
+obj0 = LinExpr()
 for i in range(len(G.nos)):
     for j in range(len(G.nos)):
         for t in range(G.tam_capacidade):
-            obj += y[i,j,t] * G.matriz_adjacencia_custo[i][j][t]
+            obj0 += y[i,j,t] * G.matriz_adjacencia_custo[i][j][t]
 
+# modelo.setObjective(obj0,sense=GRB.MINIMIZE)
+modelo.setObjectiveN(obj0,0)
+
+obj1 = LinExpr()
+for i in range(len(G.nos)):
+    for j in range(len(G.nos)):
+        for k in range(len(G.demandas)):
+            obj1 += x[i,j,k]
+modelo.setObjectiveN(obj1,1)
 
 for i in range(len(G.nos)):
     for j in range(len(G.nos)):
@@ -72,8 +82,7 @@ for k in range(len(G.demandas)):
     modelo.addLConstr(entrando == 1)
     modelo.addLConstr(saindo == 0)
 
-modelo.setObjective(obj,sense=GRB.MINIMIZE)
-modelo.Params.timeLimit = 60.0
+modelo.Params.timeLimit = 300.0
 modelo.optimize()
 
 vx = [[[0 for k in range(len(G.demandas))] for j in range(len(G.nos))] for i in range(len(G.nos))]
@@ -91,5 +100,8 @@ for i in range(len(G.nos)):
             vy[i][j][t] = int(y[i,j,t].getAttr(GRB.Attr.X))
 
 vis = visual(G,vx,vy)
-
+custo = modelo.getObjective(0)
+hops = modelo.getObjective(1)
+print('custo gurobi::::',custo.getValue())
+print('hops gurobi::::',hops.getValue())
 
