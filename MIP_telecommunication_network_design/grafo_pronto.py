@@ -1,4 +1,6 @@
 import copy
+from queue import Queue
+# from math import pow
 class modules:
     capacidade = float()
     cost = float()
@@ -54,6 +56,7 @@ class demands:
         self.routing_unit = routing_unit
         self.routing_value = routing_value
         self.demand_type = demand_type
+        print(demand_type)
         self.idx_i = idx_i
         self.idx_j = idx_j
 
@@ -67,8 +70,11 @@ class grafo:
     matriz_adjacencia_capacidade = None
     matriz_adjacencia_custo = None
     matriz_adjacencia_demanda = None
-
+    caminhos = []
+    matriz_adjacencia_max_capacidade = None
+    tam_caminhos = None
     def __gera_matriz_adjacencia_demanda_valor(self):
+        print(len(self.nos),len(self.demandas))
         self.matriz_adjacencia_demanda = [[[] for j in range(len(self.nos))] for i in range(len(self.nos))]
         for i in range(len(self.nos)):
             for j in range(len(self.nos)):
@@ -76,6 +82,7 @@ class grafo:
                 for k in range(len(self.demandas)):
                     aux[k] = self.demandas[k].routing_value
                 self.matriz_adjacencia_demanda[i][j] = aux
+        print('matriz adjacencia demanda pronta')
 
     def __gera_matriz_adjacencia_custo(self):
         self.matriz_adjacencia_custo = [[[] for j in range(len(self.nos))] for i in range(len(self.nos))]
@@ -87,6 +94,7 @@ class grafo:
                     for t in range(len(self.arestas[e].module_list)):
                         aux[t] = self.arestas[e].module_list[t].cost
                 self.matriz_adjacencia_custo[i][j] = aux
+        print('matriz adjacencia custo pronta')
 
     def __gera_matriz_adjacencia_capacidade(self):
         self.matriz_adjacencia_capacidade = [[[] for j in range(len(self.nos))] for i in range(len(self.nos))]
@@ -98,6 +106,7 @@ class grafo:
                     for t in range(len(self.arestas[e].module_list)):
                         aux[t] = self.arestas[e].module_list[t].capacidade
                 self.matriz_adjacencia_capacidade[i][j] = aux
+        print('matriz adjacencia capacidade pronta')
 
     def __processa_nos(self):
         caminho_nodes = r'instancia1\nodes'
@@ -112,6 +121,7 @@ class grafo:
             self.idx_nos[nome] = int(len(self.nos))
             self.nos.append(nodes(nome,cx,cy))
         arq.close()
+        print('nos processados')
 
     def __processa_links(self,tipo_aresta):
         caminho_links = r'instancia1\links'
@@ -138,9 +148,8 @@ class grafo:
                 self.matriz_adjacencia[self.idx_nos[nome_j]][self.idx_nos[nome_i]] = int(len(self.arestas))
             else:
                 self.matriz_adjacencia[self.idx_nos[nome_i]][self.idx_nos[nome_j]] = int(len(self.arestas))
-            if len(module_list) > self.tam_capacidade:
-                self.tam_capacidade = int(len(module_list))
             self.arestas.append(links(nome,nome_i,nome_j,pre_installed_capacity,pre_installed_capacity_cost,routing_cost,setup_cost,module_list,self.idx_nos[nome_i],self.idx_nos[nome_j]))
+        print('links processados')
 
     def __processa_demands(self):
         caminho_demandas = r'instancia1\demands'
@@ -158,13 +167,147 @@ class grafo:
             idx_i = int(self.idx_nos[nome_i])
             idx_j = int(self.idx_nos[nome_j])
             self.demandas.append(demands(nome,nome_i,nome_j,routing_unit,demands_value,demands_type,idx_i,idx_j))
+        print('demandas processadas')
 
-    def __init__(self,tipo_aresta='U'):
+    def __processa_instancia(self,caminho):
+        arq = open(caminho,'r')
+        estado = 0
+        arq_nos = open(r'instancia1\nodes','w')
+        arq_links = open(r'instancia1\links','w')
+        arq_demandas = open(r'instancia1\demands','w')
+        print('uai')
+        for linha in arq:
+            if linha =='':
+                continue
+            if linha.find('NODES (') != -1:
+                estado = 1
+                continue
+
+            if linha.find('LINKS (') != -1:
+                estado = 2
+                continue
+
+            if linha.find('DEMANDS (') != -1:
+                estado = 3
+                continue
+
+            if linha.find(')') == 0:
+                estado = 0
+                continue
+
+            if estado == 1:
+                linha = linha[2:]
+                arq_nos.write(linha)
+            if estado == 2:
+                linha = linha[2:]
+                arq_links.write(linha)
+            if estado == 3:
+                linha = linha[2:]
+                arq_demandas.write(linha)
+        arq.close()
+        arq_links.close()
+        arq_nos.close()
+        arq_demandas.close()
+        print('Instancia processada')
+    def __calcula_matriz_adjacencia_max_cap(self):
+        self.matriz_adjacencia_max_capacidade = [[0 for j in range(len(self.nos))] for i in range(len(self.nos))]
+        for i in range(len(self.nos)):
+            for j in range(len(self.nos)):
+                soma = 0.0
+                for k in range(len(self.matriz_adjacencia_capacidade[i][j])):
+                    soma += self.matriz_adjacencia_capacidade[i][j][k]
+                self.matriz_adjacencia_max_capacidade[i][j] = soma
+                if self.matriz_adjacencia[i][j] != -1:
+                    self.matriz_adjacencia_max_capacidade[i][j] += self.arestas[self.matriz_adjacencia[i][j]].pre_installed_capacity
+
+    def __calcula_tam_capacidade(self):
+        self.tam_capacidade = 0
+        for e in range(len(self.arestas)):
+            self.tam_capacidade = max(self.tam_capacidade,len(self.arestas[e].module_list))
+
+    def __bfs(self,demanda_idx):
+        origem = self.demandas[demanda_idx].idx_i
+        destino = self.demandas[demanda_idx].idx_j
+        fluxo = self.demandas[demanda_idx].routing_value
+        fila = Queue()
+        vis = [0 for i in range(len(self.nos))]
+        pai = [-1 for i in range(len(self.nos))]
+        fila.put(origem)
+        vis[origem]=1
+        while not fila.empty():
+            processado = fila.get()
+            if processado == destino:
+                break
+            for i in range(len(self.matriz_adjacencia[processado])):
+                if self.matriz_adjacencia[processado][i] == -1:
+                    continue
+                if vis[i]:
+                    continue
+                if fluxo > self.matriz_adjacencia_max_capacidade[processado][i]:
+                    continue
+                fila.put(i)
+                vis[i] = 1
+                pai[i] = processado
+        if pai[destino] == -1:
+            return None
+        ret = [0 for i in range(len(self.arestas))]
+        st = destino
+        while pai[st] != -1:
+            ret[self.matriz_adjacencia[pai[st]][st]] = 1
+            st = pai[st]
+        return ret
+
+    def __hash_func(self,cam):
+        if cam == None:
+            return 0
+        val = 0
+        p = int(1000000007)
+        for i in range(len(cam)):
+            if cam[i]:
+                val = (val%p + pow(2,i,p))%p
+        return val
+
+    def __gera_muitos_caminhos(self,conj,quant,demanda_idx):
+        conj.append(self.__bfs(demanda_idx))
+        if conj[0] == None:
+            print('deu errado demanda:',demanda_idx)
+        u = 0
+        while u<len(conj) and len(conj) < quant:
+            if conj[u] == None:
+                break
+            for i in range(len(conj[u])):
+                if conj[u][i]:
+                    aux = self.matriz_adjacencia[self.arestas[i].idx_i][self.arestas[i].idx_j]
+                    self.matriz_adjacencia[self.arestas[i].idx_i][self.arestas[i].idx_j] = -1
+                    self.matriz_adjacencia[self.arestas[i].idx_j][self.arestas[i].idx_i] = -1
+                    cam = self.__bfs(demanda_idx)
+
+                    if cam != None:
+                        conj.append(self.__bfs(demanda_idx))
+
+                    self.matriz_adjacencia[self.arestas[i].idx_i][self.arestas[i].idx_j] = aux
+                    self.matriz_adjacencia[self.arestas[i].idx_j][self.arestas[i].idx_i] = aux
+                    if len(conj) == quant:
+                        break
+            u+=1
+    def __gera_paths(self):
+        self.caminhos = [[] for i in range(len(self.demandas))]
+        self.tam_caminhos = 0
+        for k in range(len(self.demandas)):
+            self.__gera_muitos_caminhos(self.caminhos[k],150,k)
+            self.tam_caminhos = max(self.tam_caminhos,len(self.caminhos[k]))
+        print('Caminhos gerados')
+
+    def __init__(self,instancia,tipo_aresta='U'):
+        self.__processa_instancia(instancia)
         self.__processa_nos()
         self.__processa_links(tipo_aresta)
+        self.__calcula_tam_capacidade()
         self.__processa_demands()
         self.__gera_matriz_adjacencia_capacidade()
         self.__gera_matriz_adjacencia_custo()
         self.__gera_matriz_adjacencia_demanda_valor()
+        self.__calcula_matriz_adjacencia_max_cap()
+        self.__gera_paths()
 
-
+# G = grafo(r'pdh.txt')
