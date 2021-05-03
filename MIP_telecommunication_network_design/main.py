@@ -1,109 +1,88 @@
 from gurobipy import *
 from grafo_pronto import grafo
 from visual import visual
-G = grafo(r'brain.txt')
+G = grafo(r'ta1.txt')
 modelo = Model('telecom')
-x = modelo.addVars(len(G.nos),len(G.nos),len(G.demandas),vtype=GRB.BINARY,name='fluxo')
-print('matriz x definida')
-y = modelo.addVars(len(G.nos),len(G.nos),G.tam_capacidade,vtype=GRB.BINARY,name='modulo')
-print('matriz y definida')
+x = modelo.addVars(len(G.demandas),G.tam_caminhos,vtype=GRB.BINARY,name='fluxo')
+y = modelo.addVars(len(G.arestas),G.tam_capacidade,vtype=GRB.BINARY,name='modulo')
 modelo.ModelSense = GRB.MINIMIZE
-obj0 = LinExpr()
-for i in range(len(G.nos)):
-    for j in range(len(G.nos)):
-        for t in range(G.tam_capacidade):
-            obj0 += y[i,j,t] * G.matriz_adjacencia_custo[i][j][t]
+obj0 =LinExpr()
+for e in range(len(G.arestas)):
+    rc = LinExpr()
+    for t in range(len(G.arestas[e].module_list)):
+        obj0 += y[e,t]*G.arestas[e].module_list[t].cost
+        rc += y[e,t]*G.arestas[e].module_list[t].capacidade
+    obj0 += G.arestas[e].pre_installed_capacity_cost + rc*G.arestas[e].routing_cost
 
-# modelo.setObjective(obj0,sense=GRB.MINIMIZE)
 modelo.setObjectiveN(obj0,0)
-
 obj1 = LinExpr()
-for i in range(len(G.nos)):
-    for j in range(len(G.nos)):
-        for k in range(len(G.demandas)):
-            obj1 += x[i,j,k]
+for k in range(len(G.demandas)):
+    for u in range(len(G.caminhos[k])):
+        tamanho = 0
+        for i in range(len(G.caminhos[k][u])):
+            tamanho += G.caminhos[k][u][i]
+        obj1 += x[k,u]*tamanho
+
 modelo.setObjectiveN(obj1,1)
-print('objetivos definidos')
-for i in range(len(G.nos)):
-    for j in range(len(G.nos)):
-        fluxo = LinExpr()
-        for k in range(len(G.demandas)):
-            fluxo += x[i,j,k] * G.matriz_adjacencia_demanda[i][j][k]
-        capacidade = LinExpr()
-        for t in range(len(G.matriz_adjacencia_capacidade[i][j])):
-            capacidade+= y[i,j,t] * G.matriz_adjacencia_capacidade[i][j][t]
-        modelo.addLConstr(fluxo <= capacidade)
-print('restrição 1 definida')
 for k in range(len(G.demandas)):
-    ok = G.demandas[k].idx_i
-    dk = G.demandas[k].idx_j
-    for i in range(len(G.nos)):
-        if i == ok or i == dk:
-            continue
-        entrando = LinExpr()
-        for j in range(len(G.nos)):
-            if j == dk or j == i:
-                continue
-            entrando += x[j,i,k]
-        saindo = LinExpr()
-        for j in range(len(G.nos)):
-            if j == ok or j == i:
-                continue
-            saindo += x[i,j,k]
-        modelo.addLConstr(entrando == saindo)
-print('restrição 2 definida')
-for k in range(len(G.demandas)):
-    ok = G.demandas[k].idx_i
-    dk = G.demandas[k].idx_j
-    entrando = LinExpr()
-    for j in range(len(G.nos)):
-        if j == dk or j == ok:
-            continue
-        entrando+= x[j,ok,k]
-    saindo = LinExpr()
-    for j in range(len(G.nos)):
-        if j == dk or j == ok:
-            continue
-        saindo += x[ok,j,k]
-    modelo.addLConstr(entrando == 0)
-    modelo.addLConstr(saindo == 1)
-print('restrição 3 definida')
-for k in range(len(G.demandas)):
-    ok = G.demandas[k].idx_i
-    dk = G.demandas[k].idx_j
-    entrando = LinExpr()
-    for j in range(len(G.nos)):
-        if j == dk or j == ok:
-            continue
-        entrando+= x[j,dk,k]
-    saindo = LinExpr()
-    for j in range(len(G.nos)):
-        if j == dk or j == ok:
-            continue
-        saindo += x[dk,j,k]
-    modelo.addLConstr(entrando == 1)
-    modelo.addLConstr(saindo == 0)
-print('restrição 4 definida')
-modelo.Params.timeLimit = 3600.0
+    r1 = LinExpr()
+    for u in range(len(G.caminhos[k])):
+        r1 += x[k,u]
+    modelo.addLConstr(r1 == 1)
+
+exp_fluxo_aresta = [LinExpr() for i in range(len(G.arestas))]
+exp_capacidade_aresta = [LinExpr() for i in range(len(G.arestas))]
+for k in range(len(G.caminhos)):
+    for u in range(len(G.caminhos[k])):
+        for e in range(len(G.caminhos[k][u])):
+            if G.caminhos[k][u][e] == 1:
+                exp_fluxo_aresta[e] += x[k,u]*G.demandas[k].routing_value
+
+for e in range(len(G.arestas)):
+    for t in range(len(G.arestas[e].module_list)):
+        exp_capacidade_aresta[e] += y[e,t] * G.arestas[e].module_list[t].capacidade
+    exp_capacidade_aresta[e] += G.arestas[e].pre_installed_capacity
+
+for e in range(len(G.arestas)):
+    modelo.addLConstr(exp_fluxo_aresta[e] <= exp_capacidade_aresta[e])
+
+modelo.Params.timeLimit = 15.0
 modelo.optimize()
-
-vx = [[[0 for k in range(len(G.demandas))] for j in range(len(G.nos))] for i in range(len(G.nos))]
-
-for i in range(len(G.nos)):
-    for j in range(len(G.nos)):
-        for k in range(len(G.demandas)):
-            vx[i][j][k]=int(x[i,j,k].getAttr(GRB.Attr.X))
-
-
-vy = [[[0 for k in range(G.tam_capacidade)] for j in range(len(G.nos))] for i in range(len(G.nos))]
-for i in range(len(G.nos)):
-    for j in range(len(G.nos)):
-        for t in range(len(G.matriz_adjacencia_capacidade[i][j])):
-            vy[i][j][t] = int(y[i,j,t].getAttr(GRB.Attr.X))
-
-vis = visual(G,vx,vy)
 custo = modelo.getObjective(0)
 hops = modelo.getObjective(1)
 print('custo gurobi::::',custo.getValue())
 print('hops gurobi::::',hops.getValue())
+capacidade_aresta = [0.0 for i in range(len(G.arestas))]
+for e in range(len(G.arestas)):
+    cap = 0.0
+    for t in range(len(G.arestas[e].module_list)):
+        cap += G.arestas[e].module_list[t].capacidade * y[e,t].getAttr(GRB.Attr.X)
+    capacidade_aresta[e] = cap + G.arestas[e].pre_installed_capacity
 
+fluxo_aresta = [0.0 for i in range(len(G.arestas))]
+for k in range(len(G.caminhos)):
+    for u in range(len(G.caminhos[k])):
+        for e in range(len(G.caminhos[k][u])):
+            if G.caminhos[k][u][e] == 1:
+                fluxo_aresta[e] += x[k,u].getAttr(GRB.Attr.X)*G.demandas[k].routing_value
+
+for e in range(len(G.arestas)):
+    if fluxo_aresta[e] > capacidade_aresta[e]:
+        print('vish mano estourou a aresta')
+print('terminou')
+solution_edges = []
+print('-------------------------',len(fluxo_aresta))
+for e in range(len(fluxo_aresta)):
+    solution_edges.append([e,fluxo_aresta[e],capacidade_aresta[e]])
+solution_nodes = []
+for e in range(len(solution_edges)):
+    if solution_edges[e][2]==0:
+        continue
+    idx = solution_edges[e][0]
+    n1 = G.arestas[idx].idx_i
+    n2 = G.arestas[idx].idx_j
+    if not n1 in solution_nodes:
+        solution_nodes.append(n1)
+    if not n2 in solution_nodes:
+        solution_nodes.append(n2)
+vis = visual(G,solution_edges,solution_nodes)

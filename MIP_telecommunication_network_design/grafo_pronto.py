@@ -148,7 +148,7 @@ class grafo:
                 self.matriz_adjacencia[self.idx_nos[nome_j]][self.idx_nos[nome_i]] = int(len(self.arestas))
             else:
                 self.matriz_adjacencia[self.idx_nos[nome_i]][self.idx_nos[nome_j]] = int(len(self.arestas))
-            self.arestas.append(links(nome,nome_i,nome_j,pre_installed_capacity,pre_installed_capacity_cost,routing_cost,setup_cost,module_list,self.idx_nos[nome_i],self.idx_nos[nome_j]))
+            self.arestas.append(links(nome,nome_i,nome_j,pre_installed_capacity,pre_installed_capacity_cost,routing_cost,setup_cost,module_list,int(self.idx_nos[nome_i]),int(self.idx_nos[nome_j])))
         print('links processados')
 
     def __processa_demands(self):
@@ -225,7 +225,7 @@ class grafo:
         for e in range(len(self.arestas)):
             self.tam_capacidade = max(self.tam_capacidade,len(self.arestas[e].module_list))
 
-    def __bfs(self,demanda_idx):
+    def __bfs(self,demanda_idx,arestas_bloaqueadas = []):
         origem = self.demandas[demanda_idx].idx_i
         destino = self.demandas[demanda_idx].idx_j
         fluxo = self.demandas[demanda_idx].routing_value
@@ -240,6 +240,8 @@ class grafo:
                 break
             for i in range(len(self.matriz_adjacencia[processado])):
                 if self.matriz_adjacencia[processado][i] == -1:
+                    continue
+                if self.matriz_adjacencia[processado][i] in arestas_bloaqueadas:
                     continue
                 if vis[i]:
                     continue
@@ -266,35 +268,44 @@ class grafo:
             if cam[i]:
                 val = (val%p + pow(2,i,p))%p
         return val
+    def __compara_caminho(self,cam1,cam2):
+        for i in range(len(cam1)):
+            if cam1[i] != cam2[i]:
+                return False
+        return True
 
     def __gera_muitos_caminhos(self,conj,quant,demanda_idx):
         conj.append(self.__bfs(demanda_idx))
         if conj[0] == None:
             print('deu errado demanda:',demanda_idx)
-        u = 0
-        while u<len(conj) and len(conj) < quant:
-            if conj[u] == None:
-                break
-            for i in range(len(conj[u])):
-                if conj[u][i]:
-                    aux = self.matriz_adjacencia[self.arestas[i].idx_i][self.arestas[i].idx_j]
-                    self.matriz_adjacencia[self.arestas[i].idx_i][self.arestas[i].idx_j] = -1
-                    self.matriz_adjacencia[self.arestas[i].idx_j][self.arestas[i].idx_i] = -1
-                    cam = self.__bfs(demanda_idx)
+        fila = Queue()
+        fila.put([conj[0],[]])
+        while not fila.empty() and len(conj) < quant:
+            obj = fila.get()
+            processado = obj[0]
+            bloqueados = obj[1]
+            for e in range(len(processado)):
+                if processado[e] == 1:
+                    bloq = bloqueados+[e]
+                    cam = self.__bfs(demanda_idx,arestas_bloaqueadas=bloq)
+                    if cam == None:
+                        continue
+                    teste = 0
+                    for i in range(len(conj)):
+                        if self.__compara_caminho(cam,conj[i]):
+                            teste = 1
+                    if not teste:
+                        conj.append(cam)
+                        if len(conj) == quant:
+                            break
+                        fila.put([cam,bloq])
+        print('caminhos da demanda',demanda_idx,'gerados, quantidade:',len(conj))
 
-                    if cam != None:
-                        conj.append(self.__bfs(demanda_idx))
-
-                    self.matriz_adjacencia[self.arestas[i].idx_i][self.arestas[i].idx_j] = aux
-                    self.matriz_adjacencia[self.arestas[i].idx_j][self.arestas[i].idx_i] = aux
-                    if len(conj) == quant:
-                        break
-            u+=1
     def __gera_paths(self):
         self.caminhos = [[] for i in range(len(self.demandas))]
         self.tam_caminhos = 0
         for k in range(len(self.demandas)):
-            self.__gera_muitos_caminhos(self.caminhos[k],150,k)
+            self.__gera_muitos_caminhos(self.caminhos[k],50,k)
             self.tam_caminhos = max(self.tam_caminhos,len(self.caminhos[k]))
         print('Caminhos gerados')
 

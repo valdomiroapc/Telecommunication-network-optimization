@@ -1,76 +1,63 @@
 from grafo_pronto import grafo
+import matplotlib.pyplot as plt
+import networkx as nx
 class visual:
-    matriz_adjacencia = None
-    matriz_adjacencia_fluxo = None
-    matriz_adjacencia_capacidade = None
-    custo = 0.0
-    vx = None
-    vy = None
-    G = None
-    def __dfs(self,s,dk,k,vis):
-        if s == dk:
-            return 1
-        soma = 0
-        for i in range(len(self.G.nos)):
-            if self.vx[s][i][k] and not vis[i]:
-                soma+=self.__dfs(i,dk,k,vis)
-        return soma
-
-    def __verifica_caminho_unico(self):
-        for k in range(len(self.G.demandas)):
-            ok = self.G.demandas[k].idx_i
-            dk = self.G.demandas[k].idx_j
-            vis = [0 for j in range(len(self.G.nos))]
-            ret = self.__dfs(ok,dk,k,vis)
-            if(ret != 1):
-                print('FALHOU NO TESTE DE CAMINHO ÚNICO')
-                return False
-        print('PASSOU NO TESTE DE CAMINHO ÚNICO')
-        return True
-
-    def __calculo_custo(self):
-        for i in range(len(self.vy)):
-            for j in range(len(self.vy[i])):
-                for t in range(len(self.vy[i][j])):
-                    self.custo+=self.vy[i][j][t]*self.G.matriz_adjacencia_custo[i][j][t]
-        print('custo::::',self.custo)
-
-    def __teste_fluxo_capacidade(self):
-        for i in range(len(self.matriz_adjacencia_fluxo)):
-            for j in range(len(self.matriz_adjacencia_fluxo[i])):
-                if self.matriz_adjacencia_fluxo[i][j] > self.matriz_adjacencia_capacidade[i][j]:
-                    print('Não passou no teste fluxo capacidade')
-                    return False
-        print('passou no teste fluxo capacidade')
-        return True
-
-    def __preeche(self):
-        self.matriz_adjacencia = [[0 for j in range(len(self.G.nos))] for i in range(len(self.G.nos))]
-        self.matriz_adjacencia_fluxo = [[0.0 for j in range(len(self.G.nos))] for i in range(len(self.G.nos))]
-        self.matriz_adjacencia_capacidade = [[0.0 for j in range(len(self.G.nos))] for i in range(len(self.G.nos))]
-
-        for i in range(len(self.vx)):
-            for j in range(len(self.vx[i])):
-                for k in range(len(self.vx[i][j])):
-                    self.matriz_adjacencia[i][j] += self.vx[i][j][k]
-                    self.matriz_adjacencia_fluxo[i][j] += float(self.vx[i][j][k])*self.G.matriz_adjacencia_demanda[i][j][k]
-
-        for i in range(len(self.vy)):
-            for j in range(len(self.vy[i])):
-                value = 0.0
-                for t in range(len(self.vy[i][j])):
-                    value += self.vy[i][j][t]*self.G.matriz_adjacencia_capacidade[i][j][t]
-                self.matriz_adjacencia_capacidade[i][j] = value
-
-    def __init__(self,G,vx,vy):
-        self.vx = vx
-        self.vy = vy
-        self.G = G
-        self.__preeche()
-        self.__teste_fluxo_capacidade()
-        self.__calculo_custo()
-        self.__verifica_caminho_unico()
+    G = nx.Graph()
+    node_pos = None
+    node_color = None
+    edge_color = None
+    edge_label = None
+    node_label = None
+    def arruma(self,x,y):
+        return (min(x,y),max(x,y))
+    def edges(self,Gra,solution_edges):
+        mapa={}
+        for e in range(len(solution_edges)):
+            mapa[self.arruma(Gra.arestas[solution_edges[e][0]].idx_i,Gra.arestas[solution_edges[e][0]].idx_j)] = [solution_edges[e][1],solution_edges[e][2]]
+        for e in range(len(Gra.arestas)):
+            self.G.add_edge(Gra.arestas[e].idx_i,Gra.arestas[e].idx_j)
+        print(len(self.G.edges))
+        self.edge_color = ['red' for e in range(len(self.G.edges))]
+        self.edge_label = {}
+        c = 0
+        for e in self.G.edges:
+            if mapa[e][1] == 0:
+                self.edge_color[c] = 'white'
+            else:
+                porc = "{:.2f}".format(mapa[e][0]/mapa[e][1]*100)
+                self.edge_label[e] = porc+'%' + '|' + str(mapa[e][1])
+            c+=1
+        c = 0
+        for e in self.G.edges:
+            print(e,mapa[e][0],mapa[e][1],self.edge_color[c],c)
+            c+=1
 
 
-# G = grafo()
-# teste = visual(G)
+    def nodes(self,Gra,solution_nodes):
+        self.node_label = {}
+        for i in range(len(Gra.nos)):
+            self.G.add_node(i)
+        for i in range(len(self.G.nodes)):
+            self.node_label[i] = Gra.nos[i].nome
+        for i in range(len(Gra.nos)):
+            self.G.nodes[i]['pos'] = (Gra.nos[i].cx,Gra.nos[i].cy)
+        self.node_color = ['red' if i in solution_nodes else 'white' for i in self.G.nodes]
+        self.node_pos = nx.get_node_attributes(self.G,'pos')
+        print(self.G.nodes)
+
+    def plot(self):
+        nx.draw_networkx(self.G,self.node_pos,with_labels=False,node_color=self.node_color,node_size=300)
+        nx.draw_networkx_edges(self.G,self.node_pos,edge_color=self.edge_color)
+        nx.draw_networkx_labels(self.G, self.node_pos, self.node_label)
+        plt.show()
+        nx.draw_networkx(self.G, self.node_pos, with_labels=False, node_color=self.node_color, node_size=300)
+        nx.draw_networkx_edges(self.G, self.node_pos, edge_color=self.edge_color)
+        nx.draw_networkx_labels(self.G, self.node_pos, self.node_label)
+        nx.draw_networkx_edge_labels(self.G,self.node_pos,edge_labels=self.edge_label)
+        plt.show()
+
+    def __init__(self,Gra,solution_edges,solution_nodes):
+        self.nodes(Gra,solution_nodes)
+        self.edges(Gra,solution_edges)
+        self.plot()
+
