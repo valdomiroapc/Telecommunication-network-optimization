@@ -1,7 +1,7 @@
 from gurobipy import *
 from grafo_pronto import grafo
 from visual import visual
-G = grafo(r'ta1.txt')
+G = grafo(r'pdh.txt')
 modelo = Model('telecom')
 x = modelo.addVars(len(G.demandas),G.tam_caminhos,vtype=GRB.BINARY,name='fluxo')
 y = modelo.addVars(len(G.arestas),G.tam_capacidade,vtype=GRB.BINARY,name='modulo')
@@ -46,7 +46,7 @@ for e in range(len(G.arestas)):
 for e in range(len(G.arestas)):
     modelo.addLConstr(exp_fluxo_aresta[e] <= exp_capacidade_aresta[e])
 
-modelo.Params.timeLimit = 15.0
+modelo.Params.timeLimit = 3600.0
 modelo.optimize()
 custo = modelo.getObjective(0)
 hops = modelo.getObjective(1)

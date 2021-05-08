@@ -73,6 +73,7 @@ class grafo:
     caminhos = []
     matriz_adjacencia_max_capacidade = None
     tam_caminhos = None
+    array_max_cap = None
     def __gera_matriz_adjacencia_demanda_valor(self):
         print(len(self.nos),len(self.demandas))
         self.matriz_adjacencia_demanda = [[[] for j in range(len(self.nos))] for i in range(len(self.nos))]
@@ -210,7 +211,8 @@ class grafo:
         arq_demandas.close()
         print('Instancia processada')
     def __calcula_matriz_adjacencia_max_cap(self):
-        self.matriz_adjacencia_max_capacidade = [[0 for j in range(len(self.nos))] for i in range(len(self.nos))]
+        self.matriz_adjacencia_max_capacidade = [[0.0 for j in range(len(self.nos))] for i in range(len(self.nos))]
+        self.array_max_cap = [0.0 for i in range(len(self.arestas))]
         for i in range(len(self.nos)):
             for j in range(len(self.nos)):
                 soma = 0.0
@@ -219,6 +221,11 @@ class grafo:
                 self.matriz_adjacencia_max_capacidade[i][j] = soma
                 if self.matriz_adjacencia[i][j] != -1:
                     self.matriz_adjacencia_max_capacidade[i][j] += self.arestas[self.matriz_adjacencia[i][j]].pre_installed_capacity
+        for i in range(len(self.arestas)):
+            for t in range(len(self.arestas[i].module_list)):
+                self.array_max_cap[i] += self.arestas[i].module_list[t].capacidade
+            self.array_max_cap[i] += self.arestas[i].pre_installed_capacity
+
 
     def __calcula_tam_capacidade(self):
         self.tam_capacidade = 0
@@ -317,7 +324,7 @@ class grafo:
         self.__processa_demands()
         self.__gera_matriz_adjacencia_capacidade()
         self.__gera_matriz_adjacencia_custo()
-        self.__gera_matriz_adjacencia_demanda_valor()
+        #self.__gera_matriz_adjacencia_demanda_valor()
         self.__calcula_matriz_adjacencia_max_cap()
         self.__gera_paths()
 
