@@ -1,7 +1,7 @@
 from gurobipy import *
 from grafo_pronto import grafo
 from visual import visual
-G = grafo(r'pdh.txt')
+G = grafo(r'ta1.txt')
 modelo = Model('telecom')
 x = modelo.addVars(len(G.demandas),G.tam_caminhos,vtype=GRB.BINARY,name='fluxo')
 y = modelo.addVars(len(G.arestas),G.tam_capacidade,vtype=GRB.BINARY,name='modulo')
