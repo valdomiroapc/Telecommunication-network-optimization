@@ -223,7 +223,7 @@ class grafo:
                     self.matriz_adjacencia_max_capacidade[i][j] += self.arestas[self.matriz_adjacencia[i][j]].pre_installed_capacity
         for i in range(len(self.arestas)):
             for t in range(len(self.arestas[i].module_list)):
-                self.array_max_cap[i] += self.arestas[i].module_list[t].capacidade
+                self.array_max_cap[i] = max(self.arestas[i].module_list[t].capacidade,self.array_max_cap[i])
             self.array_max_cap[i] += self.arestas[i].pre_installed_capacity
 
 
@@ -328,4 +328,4 @@ class grafo:
         self.__calcula_matriz_adjacencia_max_cap()
         self.__gera_paths()
 
-# G = grafo(r'pdh.txt')
+#G = grafo(r'pdh.txt')

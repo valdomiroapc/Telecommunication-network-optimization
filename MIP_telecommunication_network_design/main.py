@@ -1,7 +1,7 @@
 from gurobipy import *
 from grafo_pronto import grafo
 from visual import visual
-G = grafo(r'ta1.txt')
+G = grafo(r'pdh.txt')
 modelo = Model('telecom')
 x = modelo.addVars(len(G.demandas),G.tam_caminhos,vtype=GRB.BINARY,name='fluxo')
 y = modelo.addVars(len(G.arestas),G.tam_capacidade,vtype=GRB.BINARY,name='modulo')
@@ -13,8 +13,6 @@ for e in range(len(G.arestas)):
         obj0 += y[e,t]*G.arestas[e].module_list[t].cost
         rc += y[e,t]*G.arestas[e].module_list[t].capacidade
     obj0 += G.arestas[e].pre_installed_capacity_cost + rc*G.arestas[e].routing_cost
-
-modelo.setObjectiveN(obj0,0)
 obj1 = LinExpr()
 for k in range(len(G.demandas)):
     for u in range(len(G.caminhos[k])):
@@ -22,8 +20,10 @@ for k in range(len(G.demandas)):
         for i in range(len(G.caminhos[k][u])):
             tamanho += G.caminhos[k][u][i]
         obj1 += x[k,u]*tamanho
+modelo.setObjectiveN(obj0,0)
+modelo.setObjectiveN(obj1, 1)
 
-modelo.setObjectiveN(obj1,1)
+
 for k in range(len(G.demandas)):
     r1 = LinExpr()
     for u in range(len(G.caminhos[k])):
@@ -46,6 +46,11 @@ for e in range(len(G.arestas)):
 for e in range(len(G.arestas)):
     modelo.addLConstr(exp_fluxo_aresta[e] <= exp_capacidade_aresta[e])
 
+for e in range(len(G.arestas)):
+    exp = LinExpr()
+    for t in range(len(G.arestas[e].module_list)):
+        exp += y[e,t]
+    modelo.addLConstr(exp <= 1)
 modelo.Params.timeLimit = 3600.0
 modelo.optimize()
 custo = modelo.getObjective(0)
