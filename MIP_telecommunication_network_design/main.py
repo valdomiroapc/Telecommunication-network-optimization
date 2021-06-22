@@ -1,7 +1,7 @@
 from gurobipy import *
 from grafo_pronto import grafo
 from visual import visual
-G = grafo(r'pdh.txt')
+G = grafo(r'newyork.txt')
 modelo = Model('telecom')
 x = modelo.addVars(len(G.demandas),G.tam_caminhos,vtype=GRB.BINARY,name='fluxo')
 y = modelo.addVars(len(G.arestas),G.tam_capacidade,vtype=GRB.BINARY,name='modulo')
@@ -79,15 +79,4 @@ solution_edges = []
 print('-------------------------',len(fluxo_aresta))
 for e in range(len(fluxo_aresta)):
     solution_edges.append([e,fluxo_aresta[e],capacidade_aresta[e]])
-solution_nodes = []
-for e in range(len(solution_edges)):
-    if solution_edges[e][2]==0:
-        continue
-    idx = solution_edges[e][0]
-    n1 = G.arestas[idx].idx_i
-    n2 = G.arestas[idx].idx_j
-    if not n1 in solution_nodes:
-        solution_nodes.append(n1)
-    if not n2 in solution_nodes:
-        solution_nodes.append(n2)
-vis = visual(G,solution_edges,solution_nodes)
+vis = visual(G,fluxo_aresta)

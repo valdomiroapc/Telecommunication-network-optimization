@@ -206,11 +206,11 @@ class cromossomo:
             f2 = self.eh_aceitavel(filho2)
             if f1 != None:
                 filho = cromossomo(tipo='receber', demanda_caminho=filho1, fluxo_aresta=f1)
-                if (filho.custo < self.custo and filho.soma_tam_caminhos <= self.soma_tam_caminhos) or (filho.custo <= other.custo and filho.soma_tam_caminhos<other.soma_tam_caminhos):
+                if ((filho.custo < self.custo and filho.soma_tam_caminhos <= self.soma_tam_caminhos) or (filho.custo <= self.custo and filho.soma_tam_caminhos < self.soma_tam_caminhos)) and ((filho.custo <= other.custo and filho.soma_tam_caminhos<other.soma_tam_caminhos) or (filho.custo < other.custo and filho.soma_tam_caminhos<=other.soma_tam_caminhos)):
                     prole.append(cromossomo(tipo='receber', demanda_caminho=filho1, fluxo_aresta=f1))
             if f2 != None:
                 filho = cromossomo(tipo='receber', demanda_caminho=filho2, fluxo_aresta=f2)
-                if (filho.custo < self.custo and filho.soma_tam_caminhos <= self.soma_tam_caminhos) or (filho.custo <= other.custo and filho.soma_tam_caminhos<other.soma_tam_caminhos):
+                if ((filho.custo < self.custo and filho.soma_tam_caminhos <= self.soma_tam_caminhos) or (filho.custo <= self.custo and filho.soma_tam_caminhos < self.soma_tam_caminhos)) and ((filho.custo <= other.custo and filho.soma_tam_caminhos<other.soma_tam_caminhos) or (filho.custo < other.custo and filho.soma_tam_caminhos<=other.soma_tam_caminhos)):
                     prole.append(cromossomo(tipo='receber', demanda_caminho=filho2, fluxo_aresta=f2))
             return prole
 
@@ -306,8 +306,8 @@ class GA:
 
     def __probabilidade_mutacao(self,idx):
         if self.ranks[idx] <= self.rank_medio and self.melhor_rank < self.rank_medio:
-            return 0.5*((float(self.ranks[idx]) - float(self.melhor_rank))/(float(self.rank_medio) - float(self.melhor_rank)))
-        return 0.5
+            return 0.1*((float(self.ranks[idx]) - float(self.melhor_rank))/(float(self.rank_medio) - float(self.melhor_rank)))
+        return 0.1
 
     def __gera_populacao(self):
         print('gerando populacao')
@@ -467,7 +467,8 @@ class GA:
         plt.savefig(caminho)
         plt.close()
 
-    def apaga_conteudo(self):
+    def gera_imagens_solucoes_frente(self):
+
         pass
 
     def __init__(self):

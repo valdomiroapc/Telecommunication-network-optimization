@@ -7,42 +7,57 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from queue import Queue
+from visual import visual
 G = grafo('pdh.txt')
 random.seed(None)
+grande_frente_pareto = []
+menor_custo_frente = 1000000000000.0
+menor_soma_tam_caminho_frente = 1000000000000.0
+conj = set()
+fila = Queue()
+fila.put([0 for i in range(len(G.demandas))])
 class cromossomo:
     demanda_caminho = None
     fluxo_aresta = None
     custo = None
     soma_tam_caminhos= None
-
+    lista_modulos = None
     def __gera_cromossomo(self):
         candidato = [0 for i in range(len(G.demandas))]
-        while True:
-            tam = len(G.demandas)
-            for i in range(tam):
-                candidato[i] = random.randint(0,len(G.caminhos[i])-1)
-            a=[0.0 for i in range(len(G.arestas))]
-            for i in range(tam):
-                tam1 = len(G.caminhos[i][candidato[i]])
-                for e in range(tam1):
-                    if G.caminhos[i][candidato[i]][e] == 1:
-                        a[e] += G.demandas[i].routing_value
-            deu = True
-            for e in range(len(G.arestas)):
-                if a[e] > G.array_max_cap[e]:
-                    print(a[e],G.array_max_cap[e])
-                    deu = False
-                    break
-            if deu:
-                self.demanda_caminho= [[] for i in range(tam)]
-                for i in range(tam):
-                    caminho = []+G.caminhos[i][candidato[i]]
-                    tam1 = len(caminho)
-                    for j in range(tam1):
-                        if caminho[j] == 1:
-                            self.demanda_caminho[i].append(j)
-                self.fluxo_aresta = a
-                break
+        tam = len(G.demandas)
+        for i in range(tam):
+            x = random.randint(0,len(G.caminhos[i])-1)
+            candidato[i] = x
+        a=[0.0 for i in range(len(G.arestas))]
+        for i in range(tam):
+            tam1 = len(G.caminhos[i][candidato[i]])
+            for e in range(tam1):
+                if G.caminhos[i][candidato[i]][e] == 1:
+                    a[e] += G.demandas[i].routing_value
+        self.demanda_caminho= [[] for i in range(tam)]
+        for i in range(tam):
+            caminho = []+G.caminhos[i][candidato[i]]
+            tam1 = len(caminho)
+            for j in range(tam1):
+                if caminho[j] == 1:
+                    self.demanda_caminho[i].append(j)
+        self.fluxo_aresta = a
+
+    def pega_modulos(self):
+        self.lista_modulos = [0 for i in range(len(G.arestas))]
+        tam = len(G.arestas)
+
+        for e in range(tam):
+            if self.fluxo_aresta == 0 or self.fluxo_aresta[e] <= G.arestas[e].pre_installed_capacity:
+                continue
+            val = 100000000000000000.0
+            for k in range(len(G.arestas[e].module_list)):
+                if G.arestas[e].module_list[k].capacidade + G.arestas[e].pre_installed_capacity >= self.fluxo_aresta[e]:
+                    if G.arestas[e].module_list[k].cost < val:
+                        val = G.arestas[e].module_list[k].cost
+                        self.lista_modulos[e] = G.arestas[e].module_list[k].capacidade
+
 
     def __calcula_custo(self):
         tam = len(G.arestas)
@@ -50,25 +65,27 @@ class cromossomo:
         for e in range(len(G.arestas)):
             self.custo+=G.arestas[e].pre_installed_capacity_cost
             if self.fluxo_aresta == 0 or self.fluxo_aresta[e]<=G.arestas[e].pre_installed_capacity:
+                self.custo += self.fluxo_aresta[e]*G.arestas[e].routing_cost
                 continue
-            val = 100000000000.0
+            val = 100000000000000000.0
             for k in range(len(G.arestas[e].module_list)):
                 if G.arestas[e].module_list[k].capacidade+G.arestas[e].pre_installed_capacity >= self.fluxo_aresta[e]:
                     val = min(val,G.arestas[e].module_list[k].cost)
-            self.custo += val
+            self.custo += val + self.fluxo_aresta[e]*G.arestas[e].routing_cost
 
     def __calcula_custo_dif(self,fluxo_aresta):
         tam = len(G.arestas)
         custo = 0.0
         for e in range(len(G.arestas)):
             custo+=G.arestas[e].pre_installed_capacity_cost
-            if fluxo_aresta[e] == 0 or fluxo_aresta[e]<=G.arestas[e].pre_installed_capacity:
+            if fluxo_aresta == 0 or fluxo_aresta[e]<=G.arestas[e].pre_installed_capacity:
+                custo += fluxo_aresta[e]*G.arestas[e].routing_cost
                 continue
-            val = 100000000000.0
+            val = 100000000000000.0
             for k in range(len(G.arestas[e].module_list)):
                 if G.arestas[e].module_list[k].capacidade +G.arestas[e].pre_installed_capacity >= fluxo_aresta[e]:
                     val = min(val, G.arestas[e].module_list[k].cost)
-            custo += val
+            custo += val + fluxo_aresta[e]*G.arestas[e].routing_cost
         return custo
 
     def __calcula_soma_tamanho_caminhos(self):
@@ -83,8 +100,21 @@ class cromossomo:
             for e in range(len(self.demanda_caminho[d])):
                 print(self.demanda_caminho[d][e],end=' ')
             print()
+        print('custo',self.custo)
+        print('soma tam caminhos',self.soma_tam_caminhos)
         print('-------------')
-    def __busca_local(self):
+
+    def __lt__(self,other):
+        return (self.custo < other.custo and self.soma_tam_caminhos <= other.soma_tam_caminhos) or (self.custo <= other.custo and self.soma_tam_caminhos < other.soma_tam_caminhos)
+
+    def eh_aceitavel(self,demanda_caminho):
+        fluxo_aresta = [ 0.0 for i in range(len(G.arestas))]
+        for cmh in range(len(demanda_caminho)):
+            for e in demanda_caminho[cmh]:
+                fluxo_aresta[e] += G.demandas[cmh].routing_value
+        return fluxo_aresta
+
+    def busca_local(self):
         continua = 1
         while continua:
             tt = len(self.demanda_caminho)
@@ -95,43 +125,36 @@ class cromossomo:
                 fluxo_aresta = [] + self.fluxo_aresta
                 custo = 0.0
                 soma_tam_caminho = 0
-                conjunto_caminho = []+G.caminhos[demanda_idx]
-                for e in demanda_caminho[demanda_idx]:#remove fluxo do caminho atual
+                conjunto_caminho = [] + G.caminhos[demanda_idx]
+                for e in demanda_caminho[demanda_idx]:  # remove fluxo do caminho atual
                     fluxo_aresta[e] -= G.demandas[demanda_idx].routing_value
-                ref_fluxo_aresta = []+fluxo_aresta
-                for cmh in conjunto_caminho:#para cada caminho do conjunto de caminhos
+                ref_fluxo_aresta = [] + fluxo_aresta
+                for cmh in conjunto_caminho:  # para cada caminho do conjunto de caminhos
                     cmh_formatado = []
                     for i in range(len(cmh)):
                         if cmh[i] == 1:
                             cmh_formatado.append(i)
-                    demanda_caminho[demanda_idx] = []+cmh_formatado
+                    demanda_caminho[demanda_idx] = [] + cmh_formatado
                     for e in cmh_formatado:
                         fluxo_aresta[e] += G.demandas[demanda_idx].routing_value
+                    bom = True
+                    for e in cmh_formatado:
+                        if fluxo_aresta[e] > G.array_max_cap[e]:
+                            bom = False
+
                     custo = self.__calcula_custo_dif(fluxo_aresta)
                     for c in demanda_caminho:
                         soma_tam_caminho += len(c)
-                    if (custo < self.custo and soma_tam_caminho <= self.soma_tam_caminhos) or (custo<=self.custo and soma_tam_caminho<self.soma_tam_caminhos):
-                    #if custo < self.custo:
+                    self.insere_na_frente(demanda_caminho, fluxo_aresta, custo, soma_tam_caminho)
+                    if (custo < self.custo and soma_tam_caminho <= self.soma_tam_caminhos) or (
+                            custo <= self.custo and soma_tam_caminho < self.soma_tam_caminhos):
                         self.demanda_caminho = [] + demanda_caminho
                         self.fluxo_aresta = [] + fluxo_aresta
                         self.custo = custo
                         self.soma_tam_caminhos = soma_tam_caminho
                         continua = 1
-                    fluxo_aresta = []+ref_fluxo_aresta
-                demanda_idx+=1
-
-    def __lt__(self,other):
-        return (self.custo < other.custo and self.soma_tam_caminhos <= other.soma_tam_caminhos) or (self.custo <= other.custo and self.soma_tam_caminhos < other.soma_tam_caminhos)
-
-    def eh_aceitavel(self,demanda_caminho):
-        fluxo_aresta = [ 0.0 for i in range(len(self.fluxo_aresta))]
-        for cmh in range(len(demanda_caminho)):
-            for e in demanda_caminho[cmh]:
-                fluxo_aresta[e] += G.demandas[cmh].routing_value
-        for e in range(len(fluxo_aresta)):
-            if fluxo_aresta[e] > G.array_max_cap[e]+G.arestas[e].pre_installed_capacity:
-                return None
-        return fluxo_aresta
+                    fluxo_aresta = [] + ref_fluxo_aresta
+                demanda_idx += 1
 
     def __add__(self, other):
         while True:
@@ -158,47 +181,94 @@ class cromossomo:
             f1 = self.eh_aceitavel(filho1)
             f2 = self.eh_aceitavel(filho2)
             if f1 != None:
-                filho = cromossomo(tipo='receber',demanda_caminho=filho1,fluxo_aresta=f1)
-                if filho.custo > self.custo and filho.custo > other.custo:
-                    prole.append(cromossomo(tipo='receber',demanda_caminho=filho1,fluxo_aresta=f1))
+                filho = cromossomo(tipo='receber', demanda_caminho=filho1, fluxo_aresta=f1)
+                if ((filho.custo < self.custo and filho.soma_tam_caminhos <= self.soma_tam_caminhos) or (filho.custo <= self.custo and filho.soma_tam_caminhos < self.soma_tam_caminhos)) and ((filho.custo <= other.custo and filho.soma_tam_caminhos<other.soma_tam_caminhos) or (filho.custo < other.custo and filho.soma_tam_caminhos<=other.soma_tam_caminhos)):
+                    prole.append(cromossomo(tipo='receber', demanda_caminho=filho1, fluxo_aresta=f1))
             if f2 != None:
-                filho = cromossomo(tipo='receber',demanda_caminho=filho2,fluxo_aresta=f2)
-                if filho.custo > self.custo and filho.custo > other.custo:
-                    prole.append(cromossomo(tipo='receber',demanda_caminho=filho2,fluxo_aresta=f2))
+                filho = cromossomo(tipo='receber', demanda_caminho=filho2, fluxo_aresta=f2)
+                if ((filho.custo < self.custo and filho.soma_tam_caminhos <= self.soma_tam_caminhos) or (filho.custo <= self.custo and filho.soma_tam_caminhos < self.soma_tam_caminhos)) and ((filho.custo <= other.custo and filho.soma_tam_caminhos<other.soma_tam_caminhos) or (filho.custo < other.custo and filho.soma_tam_caminhos<=other.soma_tam_caminhos)):
+                    prole.append(cromossomo(tipo='receber', demanda_caminho=filho2, fluxo_aresta=f2))
             return prole
 
     def mutacao(self):
         return cromossomo()
 
-    def __init__(self,tipo='gerar',demanda_caminho=None,fluxo_aresta=None,item=None):
+    def insere_na_frente(self,demanda_caminho,fluxo_aresta,custo,soma_tam_caminhos):
+        global grande_frente_pareto
+        global menor_custo_frente
+        global menor_soma_tam_caminho_frente
+        if len(grande_frente_pareto) == 0:
+            grande_frente_pareto.append(cromossomo(tipo='colocar',demanda_caminho=demanda_caminho,fluxo_aresta=fluxo_aresta,custo=custo,soma_tam_caminhos=soma_tam_caminhos))
+            menor_custo_frente = custo
+            menor_soma_tam_caminho_frente = soma_tam_caminhos
+            return
+
+        if (custo < menor_custo_frente and soma_tam_caminhos <= menor_soma_tam_caminho_frente) or (custo <= menor_custo_frente and soma_tam_caminhos < menor_soma_tam_caminho_frente):
+            frente_pareto = []
+            frente_pareto.append(cromossomo(tipo='colocar',demanda_caminho=demanda_caminho,fluxo_aresta=fluxo_aresta,custo=custo,soma_tam_caminhos=soma_tam_caminhos))
+            menor_custo_frente = custo
+            menor_soma_tam_caminho_frente = soma_tam_caminhos
+            return
+
+        coloca = True
+        nova_frente = [cromossomo(tipo='colocar',demanda_caminho=demanda_caminho,fluxo_aresta=fluxo_aresta,custo=custo,soma_tam_caminhos=soma_tam_caminhos)]
+        for i in range(len(grande_frente_pareto)):
+            if (custo == grande_frente_pareto[i].custo and soma_tam_caminhos == grande_frente_pareto[i].soma_tam_caminhos) or ((grande_frente_pareto[i].custo < custo and grande_frente_pareto[i].soma_tam_caminhos <= soma_tam_caminhos) or (grande_frente_pareto[i].custo <= custo and grande_frente_pareto[i].soma_tam_caminhos < soma_tam_caminhos)):
+                coloca = False
+                break
+            if (custo < grande_frente_pareto[i].custo and soma_tam_caminhos <= grande_frente_pareto[i].soma_tam_caminhos) or (custo <= grande_frente_pareto[i].custo and soma_tam_caminhos < grande_frente_pareto[i].soma_tam_caminhos):
+                continue
+            nova_frente.append(grande_frente_pareto[i])
+        if coloca:
+            grande_frente_pareto=nova_frente
+            menor_custo_frente= min(custo,menor_custo_frente)
+            menor_soma_tam_caminho_frente = min(menor_soma_tam_caminho_frente,soma_tam_caminhos)
+
+
+    def __init__(self,tipo='gerar',demanda_caminho=None,fluxo_aresta=None,custo=0,soma_tam_caminhos=0,item=None):
+        global conj
         if tipo == 'gerar':
             self.__gera_cromossomo()
+            self.__calcula_custo()
+            self.__calcula_soma_tamanho_caminhos()
+            #self.busca_local()
+            self.insere_na_frente(self.demanda_caminho,self.fluxo_aresta,self.custo,self.soma_tam_caminhos)
+            return
+
         if tipo == 'receber':
             self.demanda_caminho = demanda_caminho
             self.fluxo_aresta = fluxo_aresta
+            self.__calcula_custo()
+            self.__calcula_soma_tamanho_caminhos()
+            #self.__busca_local()
+            self.insere_na_frente(self.demanda_caminho, self.fluxo_aresta, self.custo, self.soma_tam_caminhos)
+            return
+
         if tipo == 'atribuir':
             self.demanda_caminho = item.demanda_caminho
             self.fluxo_aresta = item.fluxo_aresta
             self.custo = item.custo
             self.soma_tam_caminhos = item.soma_tam_caminhos
             return
-        self.__calcula_custo()
-        self.__calcula_soma_tamanho_caminhos()
+        if tipo == 'colocar':
+            self.demanda_caminho = demanda_caminho
+            self.fluxo_aresta = fluxo_aresta
+            self.custo = custo
+            self.soma_tam_caminhos = soma_tam_caminhos
+            return
         #self.__imprime_cromossomo()
-        #self.__busca_local()
-        #print('custo:',self.custo,'tam caminhos:',self.soma_tam_caminhos)
 
 class GA:
     taxa_cruzamento = 0.8
     taxa_mutacao = 0.05
-    tamanho_populacao = 100
+    tamanho_populacao = 75
     populacao = None
     ranks = None
     crowding_distance = None
     melhor_individuo = None
     custo_medio =0
     soma_tam_caminho_medio = 0
-    k = [1,0.1,1,0.1]
+    k = [1,0.5,1,0.5]
     rank_medio = 0.0
     melhor_rank = 10000
     frente = None
@@ -207,19 +277,23 @@ class GA:
         if(self.ranks[idx2] < self.ranks[idx1]):
             idx = idx2
         if(self.ranks[idx] > self.rank_medio) and self.melhor_rank < self.rank_medio:
-            return (self.rank_medio - self.melhor_rank)/(self.rank_medio - self.melhor_rank)
+            return float(self.rank_medio - self.melhor_rank)/float(self.rank_medio - self.melhor_rank)
         return 1.0
 
     def __probabilidade_mutacao(self,idx):
         if self.ranks[idx] <= self.rank_medio and self.melhor_rank < self.rank_medio:
-            return 0.1*((float(self.ranks[idx]) - float(self.melhor_rank))/(float(self.rank_medio) - float(self.melhor_rank)))
-        return 0.1
+            return 0.5*((float(self.ranks[idx]) - float(self.melhor_rank))/(float(self.rank_medio) - float(self.melhor_rank)))
+        return 0.5
 
     def __gera_populacao(self):
         print('gerando populacao')
         self.populacao = []
         for i in range(self.tamanho_populacao):
             self.populacao.append(cromossomo())
+            #self.populacao[i].busca_local()
+            for j in range(len(grande_frente_pareto)):
+                print('(',grande_frente_pareto[j].custo,'|',grande_frente_pareto[j].soma_tam_caminhos,')',end=',')
+            print('')
             print('gerados',i,'cromossomos')
         print('Populacao gerada')
         pass
@@ -279,7 +353,7 @@ class GA:
 
     def __operador_cruzamento(self):
         p = float(random.randint(1,100))/100.0
-        qtd = int(len(self.populacao)/2)
+        qtd = int(len(self.populacao)*0.5)
         prole = []
         while qtd>0:
             parent1 = self.__torneio()
@@ -288,7 +362,7 @@ class GA:
                 prole += self.populacao[parent1]+self.populacao[parent2]
             qtd-=1
         self.populacao += prole
-        print('operador cruzamento finalizado',len(prole),'filhos gerados')
+        print('operador de cruzamento finalizado',len(prole), 'novos individuos')
 
     def __operador_mutacao(self):
         contador = 0
@@ -297,7 +371,7 @@ class GA:
             if p  <= self.__probabilidade_mutacao(e):
                 self.populacao[e] = self.populacao[e].mutacao()
                 contador+=1
-        print('Mutação realizada',contador,'mutaçoes')
+        print('Mutação realizada',contador,'individuos mutados')
 
     def __Crowding(self):
         vet_min = [100000000000.0,100000000000.0]
@@ -355,22 +429,29 @@ class GA:
         print('Seleção realizada')
 
     def __plot_frente_de_pareto(self,geracao):
-        custo_frente = np.array([self.frente[i].custo for i in range(len(self.frente))])
-        soma_tam_caminhos_frente = np.array([self.frente[i].soma_tam_caminhos for i in range(len(self.frente))])
+        global grande_frente_pareto
+        custo_frente = np.array([grande_frente_pareto[i].custo for i in range(len(grande_frente_pareto))])
+        soma_tam_caminhos_frente = np.array([grande_frente_pareto[i].soma_tam_caminhos for i in range(len(grande_frente_pareto))])
         custo = np.array([self.populacao[i].custo for i in range(len(self.populacao))])
         soma_tam_caminhos = np.array([self.populacao[i].soma_tam_caminhos for i in range(len(self.populacao))])
         plt.scatter(soma_tam_caminhos,custo,c=np.array(['blue' for i in range(len(self.populacao))]),label='Outras soluções')
-        plt.scatter(soma_tam_caminhos_frente, custo_frente, c=np.array(['red' for i in range(len(self.frente))]),label='Frente de pareto')
-        plt.xlabel('Soma dos tamanhos dos caminhos')
+        plt.scatter(soma_tam_caminhos_frente, custo_frente, c=np.array(['red' for i in range(len(grande_frente_pareto))]),label='Frente de pareto')
+        plt.xlabel('Soma dos Hops')
         plt.ylabel('Custo')
         plt.title('ANSGA II - Geração '+geracao)
         plt.legend()
         caminho = 'NSGA 2 Figuras/' + 'Geração('+str(geracao)+').png'
         plt.savefig(caminho)
         plt.close()
-        #plt.show()
 
-    def apaga_conteudo(self):
+    def gera_imagem_soluc(self):
+        for i in range(len(grande_frente_pareto)):
+            visual(G,grande_frente_pareto[i].fluxo_aresta)
+            grande_frente_pareto[i].pega_modulos()
+            print('------Solucao',i+1,'--------')
+            for j in range(len(G.arestas)):
+                print('fluxo: ',grande_frente_pareto[i].fluxo_aresta[j],'capacidade instalada',grande_frente_pareto[i].lista_modulos[j])
+            print('----------------------------')
         pass
 
     def __init__(self):
@@ -393,6 +474,7 @@ class GA:
             self.__operador_mutacao()
             self.__non_dominated_pareto_sort()
             self.__Crowding()
+            print('fim Crowding')
             self.__selection()
             for i in range(len(self.frente)):
                 if self.frente[i] < self.melhor_individuo:
@@ -404,13 +486,15 @@ class GA:
             print('soma média de caminhos',self.soma_tam_caminho_medio)
             print('rank médio',self.rank_medio)
             print('melhor rank',self.melhor_rank)
-            for i in range(len(self.frente)):
-                print('(',self.frente[i].custo,'|',self.frente[i].soma_tam_caminhos,')',end=',')
+            for i in range(len(grande_frente_pareto)):
+                print('(',grande_frente_pareto[i].custo,'|',grande_frente_pareto[i].soma_tam_caminhos,')',end=',')
             print('')
             print('-----------------')
             self.__calcula_dados()
             geracao+=1
-            #if geracao%50:
-                #self.__plot_frente_de_pareto(str(geracao))
+            #random.seed(None)
+            #self.__plot_frente_de_pareto(str(geracao))
         self.__plot_frente_de_pareto(str(geracao))
+        self.gera_imagem_soluc()
 teste = GA()
+print('uai')
