@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from queue import Queue
-G = grafo('pdh.txt')
+G = grafo('norway.txt')
 random.seed(None)
 grande_frente_pareto = []
 menor_custo_frente = 1000000000000.0
@@ -255,7 +255,7 @@ class cromossomo:
             self.__gera_cromossomo()
             self.__calcula_custo()
             self.__calcula_soma_tamanho_caminhos()
-            #self.__busca_local()
+            self.__busca_local()
             self.insere_na_frente(self.demanda_caminho,self.fluxo_aresta,self.custo,self.soma_tam_caminhos)
             return
 
@@ -264,7 +264,7 @@ class cromossomo:
             self.fluxo_aresta = fluxo_aresta
             self.__calcula_custo()
             self.__calcula_soma_tamanho_caminhos()
-            #self.__busca_local()
+            self.__busca_local()
             self.insere_na_frente(self.demanda_caminho, self.fluxo_aresta, self.custo, self.soma_tam_caminhos)
             return
 

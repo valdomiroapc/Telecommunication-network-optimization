@@ -250,6 +250,7 @@ class cromossomo:
             self.custo = item.custo
             self.soma_tam_caminhos = item.soma_tam_caminhos
             return
+
         if tipo == 'colocar':
             self.demanda_caminho = demanda_caminho
             self.fluxo_aresta = fluxo_aresta
